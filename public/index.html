@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hello World</title>
+</head>
+
+<body>
+  <canvas width="10" height="10"></canvas>
+
+
+  <script type="module">
+    import all from './game.js'
+    console.log(all)
+  </script>
+  <script>
+
+    const game = {
+      width: 600,
+      height: 600,
+      background: "skyblue",
+      player: {
+        color: "green",
+        size: 30,
+        speed: 10,
+      },
+      actions: {
+        moveLeft: (player, step) => {
+          player.position.x = Math.max(player.position.x - step, 0)
+        },
+        moveRight: (player, step) => {
+          player.position.x = Math.min(player.position.x + step, game.width - game.player.size)
+        },
+        shoot: (player, projectiles) => {
+          const newProjectile = {
+            position: {
+              x: player.position.x + 15 - 5,
+              y: player.position.y - 5,
+            }
+          }
+
+          projectiles.push(newProjectile)
+        },
+      },
+      projectile: {
+        color: 'red',
+        size: 10
+      },
+      enemie: {
+        color: "magenta",
+        size: 30,
+        speed: 1,
+      }
+    }
+
+    const canvas = document.querySelector("canvas");
+    canvas.width = game.width
+    canvas.height = game.height
+
+
+    const context = canvas.getContext("2d");
+
+    context.fillStyle = game.background;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    const player = {
+      position: {
+        x: Math.floor(canvas.width / 2 - game.player.size / 2),
+        y: Math.floor(canvas.height * 4 / 5)
+      }
+    }
+
+    let projectiles = []
+
+    const avaliableKeys = {
+      KeyA: () => { game.actions.moveLeft(player, game.player.speed) },
+      KeyD: () => { game.actions.moveRight(player, game.player.speed) },
+      Space: () => { game.actions.shoot(player, projectiles) },
+    }
+
+    const keysPressed = {};
+
+    document.addEventListener('keydown', (event) => {
+      keysPressed[event.code] = true;
+      handleKeys();
+    });
+
+    document.addEventListener('keyup', (event) => {
+      delete keysPressed[event.code];
+    });
+
+    function handleKeys() {
+      for (const pressedKey of Object.keys(keysPressed)) {
+        if (avaliableKeys[pressedKey]) {
+          avaliableKeys[pressedKey]()
+        }
+      }
+    }
+
+
+    function createEnemiesBlock(rows, columns, gap, initialPosition) {
+      let enemiesBlock = []
+      const { x, y } = initialPosition
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < columns; j++) {
+          const anEnemie = {
+            id: i * columns + j,
+            position: {
+              x: x + (game.enemie.size + gap) * j,
+              y: y + (game.enemie.size + gap) * i,
+            }
+          }
+          enemiesBlock.push(anEnemie)
+        }
+      }
+
+      return enemiesBlock
+    }
+
+    const enemies = createEnemiesBlock(3, 6, 5, { x: 0, y: 0 })
+
+    function findRightMostEnemie(enemies) {
+      let rightMostEnemie = enemies[0]
+      let index = 1
+      for (let index = 0; index < enemies.length; index++) {
+        const enemie = enemies[index];
+        if (enemie.position.x > rightMostEnemie.position.x) {
+          rightMostEnemie = enemie
+        }
+      }
+
+      return rightMostEnemie
+    }
+
+    function findLeftMostEnemie(enemies) {
+      let leftMostEnemie = enemies[0]
+      let index = 1
+      for (let index = 0; index < enemies.length; index++) {
+        const enemie = enemies[index];
+        if (enemie.position.x < leftMostEnemie.position.x) {
+          leftMostEnemie = enemie
+        }
+      }
+
+      return leftMostEnemie
+    }
+
+    /*
+    enimieBlock
+    find the right-most enimie
+    if it hits game border
+      change block direction
+      move block a unit down
+    if not reached player vertical position
+      repeat for left
+    */
+
+    function flip() {
+
+    }
+
+    let direction = 1
+    let moveVertical = 0
+
+    function animate() {
+      context.fillStyle = game.background
+      context.fillRect(0, 0, canvas.width, canvas.height)
+
+      context.fillStyle = game.player.color
+      context.fillRect(player.position.x, player.position.y, game.player.size, game.player.size);
+
+      context.fillStyle = game.projectile.color
+      if (projectiles.length > 0) {
+        projectiles = projectiles.filter(projectile => projectile.position.y > 0)
+        projectiles = projectiles.map(projectile => {
+          projectile.position.y -= 6
+          context.fillRect(projectile.position.x, projectile.position.y, game.projectile.size, game.projectile.size)
+          return projectile
+        })
+      }
+
+      moveVertical = 0
+      if (direction > 0) {
+        const rightMostEnemie = findRightMostEnemie(enemies)
+        if (rightMostEnemie.position.x >= game.width - game.enemie.size) {
+          direction *= -1
+          moveVertical = 30
+        }
+      } else {
+        const leftMostEnemie = findLeftMostEnemie(enemies)
+        if (leftMostEnemie.position.x <= 0) {
+          direction *= -1
+          moveVertical = 30
+        }
+
+      }
+
+      context.fillStyle = game.enemie.color
+      enemies.forEach((enemie, enemieIndex) => {
+        projectiles.forEach((projectile, projectileIndex) => {
+          let enemieLocked = {
+            horizontally: false,
+            vertically: false
+          }
+          if (projectile.position.x + game.projectile.size > enemie.position.x && projectile.position.x < enemie.position.x + game.enemie.size) {
+            enemieLocked.horizontally = true
+          }
+          if (projectile.position.y < enemie.position.y + game.enemie.size && projectile.position.y + game.projectile.size > enemie.position.y) {
+            enemieLocked.vertically = true
+          }
+          if (enemieLocked.horizontally && enemieLocked.vertically) {
+            enemies.splice(enemieIndex, 1)
+            projectiles.splice(projectileIndex, 1)
+          }
+        });
+
+        enemie.position.y += moveVertical
+        enemie.position.x += game.enemie.speed * direction
+
+        context.fillRect(enemie.position.x, enemie.position.y, game.enemie.size, game.enemie.size)
+      });
+
+      requestAnimationFrame(animate)
+    }
+
+    requestAnimationFrame(animate);
+
+  </script>
+</body>
+
+</html>
